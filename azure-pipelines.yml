@@ -1,0 +1,106 @@
+trigger:
+  branches:
+    include:
+      - main  # or your working branch
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  vm_host: '52.168.120.170'
+  vm_user: 'azureuser'
+  jar_name: 'spring-petclinic-2.7.0.jar'  # Adjust if your final jar name is different
+  ssh_service_connection: 'your-ssh-service-connection-name'  # You MUST create SSH Service Connection in Azure DevOps
+
+stages:
+
+# 1. Checkout Code
+- stage: Checkout_Code
+  displayName: 'Checkout Code from GitHub'
+  jobs:
+    - job: Checkout
+      steps:
+        - checkout: self
+
+# 2. Install Dependencies
+- stage: Install_Dependencies
+  displayName: 'Install Maven and Java Dependencies'
+  jobs:
+    - job: Install
+      steps:
+        - script: |
+            sudo apt-get update
+            sudo apt-get install -y maven
+          displayName: 'Install Maven'
+
+# 3. Unit Tests
+- stage: Unit_Test
+  displayName: 'Run Unit Tests'
+  jobs:
+    - job: UnitTests
+      steps:
+        - script: |
+            mvn test
+          displayName: 'Run Unit Tests (JUnit)'
+
+# 4. Code Quality Check
+- stage: Code_Quality_Check
+  displayName: 'Run Code Quality Checks'
+  jobs:
+    - job: CodeQuality
+      steps:
+        - script: |
+            mvn verify
+          displayName: 'Run Maven Verify (basic code checks)'
+
+# 5. Build and Package App
+- stage: Build_and_Package
+  displayName: 'Build and Package Application'
+  jobs:
+    - job: Build
+      steps:
+        - script: |
+            mvn clean package
+          displayName: 'Build and Package JAR'
+
+# 6. Copy Jar to Azure VM
+- stage: Copy_Jar_to_VM
+  displayName: 'Copy JAR file to Azure VM'
+  jobs:
+    - job: CopyFiles
+      steps:
+        - task: CopyFilesOverSSH@0
+          inputs:
+            sshEndpoint: $(ssh_service_connection)
+            sourceFolder: '$(System.DefaultWorkingDirectory)/target'
+            contents: '**/*.jar'
+            targetFolder: '/home/azureuser/'
+
+# 7. Start Application on VM
+- stage: Start_Application
+  displayName: 'Start Spring Boot Application on VM'
+  jobs:
+    - job: StartApp
+      steps:
+        - task: SSH@0
+          inputs:
+            sshEndpoint: $(ssh_service_connection)
+            runOptions: 'commands'
+            command: |
+              echo "Killing existing Java processes (if any)..."
+              pkill -f 'java -jar' || echo "No old java process found."
+              echo "Starting Spring Boot Application..."
+              nohup java -jar /home/azureuser/$(jar_name) > app.log 2>&1 &
+              sleep 10
+
+# 8. Verify Deployment
+- stage: Verify_Deployment
+  displayName: 'Verify Application is Running'
+  jobs:
+    - job: Verify
+      steps:
+        - script: |
+            echo "Verifying application is up..."
+            sleep 10
+            curl --fail http://$(vm_host):8080 || (echo "App not running!" && exit 1)
+          displayName: 'Verify Spring Boot App Deployment'
