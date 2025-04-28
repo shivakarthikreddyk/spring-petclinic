@@ -8,9 +8,9 @@ pool:
 
 variables:
   vm_host: '52.168.120.170'
+  ssh_service_connection: 'ssh-to-azurevm2'
   vm_user: 'azureuser'
   jar_name: 'spring-petclinic-2.7.0.jar'  # Adjust if your final jar name is different
-  ssh_service_connection: 'your-ssh-service-connection-name'  # You MUST create SSH Service Connection in Azure DevOps
 
 stages:
 
