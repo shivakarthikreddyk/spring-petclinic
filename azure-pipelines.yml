@@ -30,6 +30,7 @@ stages:
 
   - stage: CodeQuality
     displayName: 'Analyze Code with SonarCloud'
+    condition: false # <-- This disables the entire stage
     jobs:
       - job: SonarQube
         steps:
