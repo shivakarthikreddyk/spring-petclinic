@@ -13,7 +13,7 @@ variables:
   aksNamespace: 'default'
 
 pool:
-  name: Default
+  vmImage: 'ubuntu-latest'
 
 stages:
   - stage: Build
