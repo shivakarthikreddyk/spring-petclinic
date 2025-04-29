@@ -9,7 +9,7 @@ variables:
   acrLoginServer: 'shivacr.azurecr.io'
   imageRepository: 'spring-petclinic'
   dockerImageName: '$(acrLoginServer)/$(imageRepository):$(Build.BuildId)'
-  kubernetesServiceConnection: 'aks-k8s-connection'  # updated from azure-arm-connection
+  kubernetesServiceConnection: 'aks-k8s-connection'
   aksNamespace: 'default'
 
 pool:
@@ -21,7 +21,7 @@ stages:
     jobs:
       - job: Build
         steps:
-          - task: Maven@3
+          - task: Maven@4
             inputs:
               mavenPomFile: 'pom.xml'
               goals: 'clean package'
