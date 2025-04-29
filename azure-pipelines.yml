@@ -30,7 +30,7 @@ stages:
 
           - script: |
               echo "Checking for JAR..."
-              dir target
+              dir $(Build.SourcesDirectory)\target
             displayName: 'Verify JAR exists'
 
   - stage: Dockerize
@@ -39,7 +39,7 @@ stages:
       - job: DockerBuildPush
         steps:
           - script: |
-              echo "Checking for JAR file..."
+              echo "Checking for JAR in: $(Build.SourcesDirectory)\target"
               dir $(Build.SourcesDirectory)\target
             displayName: 'Verify JAR file exists'
 
