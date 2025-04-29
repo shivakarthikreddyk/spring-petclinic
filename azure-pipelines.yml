@@ -37,16 +37,22 @@ stages:
   - stage: Dockerize
     displayName: 'Docker Build and Push'
     jobs:
-      - job: DockerBuildPush
-        steps:
+    - job: DockerBuildPush
+      steps:
+        - script: |
+            echo "Checking for JAR file..."
+            dir $(Build.SourcesDirectory)\target
+          displayName: 'Verify JAR file exists'
+
         - task: Docker@2
           inputs:
             containerRegistry: '$(dockerRegistryServiceConnection)'
             repository: '$(imageRepository)'
             command: 'buildAndPush'
-            Dockerfile: 'Dockerfile'              # <- Explicit path
-            buildContext: '$(Build.SourcesDirectory)'  # <- Ensure target/ is accessible
+            Dockerfile: 'Dockerfile'                          # ✅ Path relative to root
+            buildContext: '$(Build.SourcesDirectory)'         # ✅ Include target/
             tags: '$(Build.BuildId)'
+
 
   - stage: Deploy
     displayName: 'Deploy to AKS'
