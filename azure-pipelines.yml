@@ -9,7 +9,7 @@ variables:
   acrLoginServer: 'shivacr.azurecr.io'
   imageRepository: 'spring-petclinic'
   dockerImageName: '$(acrLoginServer)/$(imageRepository):$(Build.BuildId)'
-  kubernetesServiceConnection: 'azure-arm-connection'
+  kubernetesServiceConnection: 'aks-k8s-connection'  # <--- New Kubernetes type connection name
   aksNamespace: 'default'
 
 pool:
