@@ -9,7 +9,7 @@ variables:
   acrLoginServer: 'shivacr.azurecr.io'
   imageRepository: 'spring-petclinic'
   dockerImageName: '$(acrLoginServer)/$(imageRepository):$(Build.BuildId)'
-  kubernetesServiceConnection: 'aks-k8s-connection'  # <--- New Kubernetes type connection name
+  kubernetesServiceConnection: 'azure-arm-connection'
   aksNamespace: 'default'
 
 pool:
@@ -25,29 +25,8 @@ stages:
             inputs:
               mavenPomFile: 'pom.xml'
               goals: 'clean package'
-              javaHomeOption: 'JDKVersion'
-              jdkVersionOption: '1.11'
-
-  # stage: CodeQuality
-    #displayName: 'Analyze Code with SonarCloud'
-   # condition: 
-    #jobs:
-     # - job: SonarQube
-      #  steps:
-       #   - task: SonarCloudPrepare@1
-        #    inputs:
-        #      SonarCloud: 'SonarCloud-Connection'  # Replace with your actual SonarCloud service connection
-         #     organization: 'shivakarthikreddyk'
-          #    scannerMode: 'CLI'
-           #   configMode: 'manual'
-            #  cliProjectKey: 'spring-petclinic'
-             # cliProjectName: 'Spring PetClinic'
-
-       #   - task: SonarCloudAnalyze@1
-
-        #  - task: SonarCloudPublish@1
-         #   inputs:
-          #    pollingTimeoutSec: '300'
+              javaHomeOption: 'Path'
+              jdkDirectory: 'C:\Program Files\Eclipse Adoptium\jdk-11.0.27.6-hotspot\bin'
 
   - stage: Dockerize
     displayName: 'Docker Build and Push'
