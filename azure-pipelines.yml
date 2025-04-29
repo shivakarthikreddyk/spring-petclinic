@@ -39,7 +39,7 @@ stages:
     jobs:
     - job: DockerBuildPush
       steps:
-        - script: |
+        - script:
             echo "Checking for JAR file..."
             dir $(Build.SourcesDirectory)\target
           displayName: 'Verify JAR file exists'
@@ -64,10 +64,10 @@ stages:
               action: 'deploy'
               kubernetesServiceConnection: '$(kubernetesServiceConnection)'
               namespace: '$(aksNamespace)'
-              manifests: |
+              manifests:
                 manifests/deployment.yaml
                 manifests/service.yaml
-              containers: |
+              containers:
                 $(dockerImageName)
 
   - stage: Verify
@@ -76,7 +76,7 @@ stages:
     jobs:
       - job: OutputURL
         steps:
-          - script: |
+          - script:
               echo "Fetching external IP..."
               kubectl get svc spring-petclinic-service -n $(aksNamespace) -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
             displayName: 'Print External IP'
