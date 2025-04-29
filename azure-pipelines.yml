@@ -26,7 +26,7 @@ stages:
               mavenPomFile: 'pom.xml'
               goals: 'clean package'
               javaHomeOption: 'Path'
-              jdkDirectory: 'C:\Program Files\Eclipse Adoptium\jdk-11.0.27.6-hotspot'
+              jdkDirectory: 'C:\Program Files\Eclipse Adoptium\jdk-17.0.10.7-hotspot'
 
   - stage: Dockerize
     displayName: 'Docker Build and Push'
