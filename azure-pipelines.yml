@@ -28,6 +28,12 @@ stages:
               javaHomeOption: 'Path'
               jdkDirectory: 'C:\Program Files\Java\jdk-17'
 
+      - script: |
+         echo "Checking for JAR..."
+            dir target
+            displayName: 'Verify JAR exists'
+
+
   - stage: Dockerize
     displayName: 'Docker Build and Push'
     jobs:
