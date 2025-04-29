@@ -28,31 +28,29 @@ stages:
               javaHomeOption: 'Path'
               jdkDirectory: 'C:\Program Files\Java\jdk-17'
 
-      - script:
-         echo "Checking for JAR..."
-            dir target
-            displayName:'Verify JAR exists'
-
+          - script: |
+              echo "Checking for JAR..."
+              dir target
+            displayName: 'Verify JAR exists'
 
   - stage: Dockerize
     displayName: 'Docker Build and Push'
     jobs:
-    - job: DockerBuildPush
-      steps:
-        - script:
-            echo "Checking for JAR file..."
-            dir $(Build.SourcesDirectory)\target
-          displayName: 'Verify JAR file exists'
+      - job: DockerBuildPush
+        steps:
+          - script: |
+              echo "Checking for JAR file..."
+              dir $(Build.SourcesDirectory)\target
+            displayName: 'Verify JAR file exists'
 
-        - task: Docker@2
-          inputs:
-            containerRegistry: '$(dockerRegistryServiceConnection)'
-            repository: '$(imageRepository)'
-            command: 'buildAndPush'
-            Dockerfile: 'Dockerfile'                          # ✅ Path relative to root
-            buildContext: '$(Build.SourcesDirectory)'         # ✅ Include target/
-            tags: '$(Build.BuildId)'
-
+          - task: Docker@2
+            inputs:
+              containerRegistry: '$(dockerRegistryServiceConnection)'
+              repository: '$(imageRepository)'
+              command: 'buildAndPush'
+              Dockerfile: 'Dockerfile'
+              buildContext: '$(Build.SourcesDirectory)'
+              tags: '$(Build.BuildId)'
 
   - stage: Deploy
     displayName: 'Deploy to AKS'
@@ -64,10 +62,10 @@ stages:
               action: 'deploy'
               kubernetesServiceConnection: '$(kubernetesServiceConnection)'
               namespace: '$(aksNamespace)'
-              manifests:
+              manifests: |
                 manifests/deployment.yaml
                 manifests/service.yaml
-              containers:
+              containers: |
                 $(dockerImageName)
 
   - stage: Verify
@@ -76,7 +74,7 @@ stages:
     jobs:
       - job: OutputURL
         steps:
-          - script:
+          - script: |
               echo "Fetching external IP..."
               kubectl get svc spring-petclinic-service -n $(aksNamespace) -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
             displayName: 'Print External IP'
