@@ -1,0 +1,20 @@
+# manifests/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring-petclinic-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: spring-petclinic
+  template:
+    metadata:
+      labels:
+        app: spring-petclinic
+    spec:
+      containers:
+        - name: spring-petclinic
+          image: "$(dockerImageName)"
+          ports:
+            - containerPort: 8080

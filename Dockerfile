@@ -1,0 +1,5 @@
+# Use a lightweight OpenJDK base image
+FROM openjdk:11-jre-slim
+VOLUME /tmp
+COPY target/*.jar app.jar
+ENTRYPOINT ["java","-jar","/app.jar"]
