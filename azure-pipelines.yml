@@ -1,16 +1,3 @@
-trigger:
-  branches:
-    include:
-      - main
-
-variables:
-  dockerRegistryServiceConnection: 'acr-docker-connection'
-  acrLoginServer: 'shivacr.azurecr.io'
-  imageRepository: 'spring-petclinic'
-  dockerImageName: '$(acrLoginServer)/$(imageRepository):$(Build.BuildId)'
-  kubernetesServiceConnection: 'aks-k8s-connection'
-  aksNamespace: 'default'
-
 pool:
   name: MyAzureVM-Pool
 
@@ -19,70 +6,34 @@ stages:
     displayName: 'Build Spring Boot App'
     jobs:
       - job: Build
+        pool:
+          name: MyAzureVM-Pool
         steps:
-          - task: Maven@4
-            inputs:
-              mavenPomFile: 'pom.xml'
-              goals: 'clean package spring-boot:repackage'
-              javaHomeOption: 'Path'
-              jdkDirectory: 'C:\Program Files\Java\jdk-17'
-
-          - script: |
-              echo "✅ Verifying JAR file in: $(Build.SourcesDirectory)\target"
-              dir "$(Build.SourcesDirectory)\target"
-            displayName: 'Verify JAR output'
-
-          - task: PublishBuildArtifacts@1
-            inputs:
-              PathtoPublish: '$(Build.SourcesDirectory)\target'
-              ArtifactName: 'spring-petclinic-jar'
-              publishLocation: 'Container'
-            displayName: 'Publish JAR as artifact'
-
+          ...
   - stage: Dockerize
     displayName: 'Docker Build and Push'
     dependsOn: Build
     jobs:
       - job: DockerBuildPush
+        pool:
+          name: MyAzureVM-Pool
         steps:
-          - script: |
-              echo "✅ Checking JAR exists before Docker build..."
-              dir "$(Build.SourcesDirectory)\target"
-            displayName: 'Confirm JAR file exists'
-
-          - task: Docker@2
-            inputs:
-              containerRegistry: '$(dockerRegistryServiceConnection)'
-              repository: '$(imageRepository)'
-              command: 'buildAndPush'
-              Dockerfile: 'Dockerfile'
-              buildContext: '$(Build.SourcesDirectory)'
-              tags: '$(Build.BuildId)'
-
+          ...
   - stage: Deploy
     displayName: 'Deploy to AKS'
     dependsOn: Dockerize
     jobs:
       - job: AKSDeploy
+        pool:
+          name: MyAzureVM-Pool
         steps:
-          - task: KubernetesManifest@1
-            inputs:
-              action: 'deploy'
-              kubernetesServiceConnection: '$(kubernetesServiceConnection)'
-              namespace: '$(aksNamespace)'
-              manifests: |
-                manifests/deployment.yaml
-                manifests/service.yaml
-              containers: |
-                $(dockerImageName)
-
+          ...
   - stage: Verify
     displayName: 'Expose and Verify'
     dependsOn: Deploy
     jobs:
       - job: OutputURL
+        pool:
+          name: MyAzureVM-Pool
         steps:
-          - script: |
-              echo "🌐 Fetching external IP for service..."
-              kubectl get svc spring-petclinic-service -n $(aksNamespace) -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
-            displayName: 'Print External IP'
+          ...
