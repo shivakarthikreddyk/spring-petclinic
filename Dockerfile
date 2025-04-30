@@ -1,5 +1,6 @@
-# Use a lightweight OpenJDK base image
-FROM openjdk:11-jre-slim
+FROM openjdk:17-jdk-slim
+WORKDIR /app
 VOLUME /tmp
-COPY target/*.jar app.jar
-ENTRYPOINT ["java","-jar","/app.jar"]
+COPY target/spring-petclinic-*.jar app.jar
+ENTRYPOINT ["java","-jar","app.jar"]
+
