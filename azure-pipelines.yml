@@ -24,24 +24,25 @@ stages:
           - task: Maven@4
             inputs:
               mavenPomFile: 'pom.xml'
-              goals: 'clean package'
+              goals: 'clean package spring-boot:repackage'
               javaHomeOption: 'Path'
               jdkDirectory: 'C:\Program Files\Java\jdk-17'
 
           - script: |
-              echo "Checking for JAR..."
+              echo "✅ Verifying JAR output..."
               dir $(Build.SourcesDirectory)\target
             displayName: 'Verify JAR exists'
 
   - stage: Dockerize
     displayName: 'Docker Build and Push'
+    dependsOn: Build
     jobs:
       - job: DockerBuildPush
         steps:
           - script: |
-              echo "Checking for JAR in: $(Build.SourcesDirectory)\target"
+              echo "✅ Checking JAR in: $(Build.SourcesDirectory)\target"
               dir $(Build.SourcesDirectory)\target
-            displayName: 'Verify JAR file exists'
+            displayName: 'Confirm JAR for Docker'
 
           - task: Docker@2
             inputs:
@@ -54,6 +55,7 @@ stages:
 
   - stage: Deploy
     displayName: 'Deploy to AKS'
+    dependsOn: Dockerize
     jobs:
       - job: AKSDeploy
         steps:
@@ -75,6 +77,6 @@ stages:
       - job: OutputURL
         steps:
           - script: |
-              echo "Fetching external IP..."
+              echo "🌐 Fetching external IP..."
               kubectl get svc spring-petclinic-service -n $(aksNamespace) -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
             displayName: 'Print External IP'
