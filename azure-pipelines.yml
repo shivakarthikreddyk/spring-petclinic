@@ -12,7 +12,7 @@ variables:
   aksNamespace: 'default'
 
 pool:
-  name: Default
+  name: MyAzureVM-Pool
 
 stages:
   - stage: Build
