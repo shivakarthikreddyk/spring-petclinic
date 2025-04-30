@@ -1,4 +1,3 @@
-# azure-pipelines.yml
 trigger:
   branches:
     include:
@@ -29,9 +28,16 @@ stages:
               jdkDirectory: 'C:\Program Files\Java\jdk-17'
 
           - script: |
-              echo "✅ Verifying JAR output..."
-              dir $(Build.SourcesDirectory)\target
-            displayName: 'Verify JAR exists'
+              echo "✅ Verifying JAR file in: $(Build.SourcesDirectory)\target"
+              dir "$(Build.SourcesDirectory)\target"
+            displayName: 'Verify JAR output'
+
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: '$(Build.SourcesDirectory)\target'
+              ArtifactName: 'spring-petclinic-jar'
+              publishLocation: 'Container'
+            displayName: 'Publish JAR as artifact'
 
   - stage: Dockerize
     displayName: 'Docker Build and Push'
@@ -40,9 +46,9 @@ stages:
       - job: DockerBuildPush
         steps:
           - script: |
-              echo "✅ Checking JAR in: $(Build.SourcesDirectory)\target"
-              dir $(Build.SourcesDirectory)\target
-            displayName: 'Confirm JAR for Docker'
+              echo "✅ Checking JAR exists before Docker build..."
+              dir "$(Build.SourcesDirectory)\target"
+            displayName: 'Confirm JAR file exists'
 
           - task: Docker@2
             inputs:
@@ -77,6 +83,6 @@ stages:
       - job: OutputURL
         steps:
           - script: |
-              echo "🌐 Fetching external IP..."
+              echo "🌐 Fetching external IP for service..."
               kubectl get svc spring-petclinic-service -n $(aksNamespace) -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
             displayName: 'Print External IP'
