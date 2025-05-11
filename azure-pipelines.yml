@@ -3,89 +3,59 @@ trigger:
     include:
       - main
 
-variables:
-  dockerRegistryServiceConnection: 'acr-docker-connection'
-  acrLoginServer: 'shivacr.azurecr.io'
-  imageRepository: 'spring-petclinic'
-  dockerImageName: '$(acrLoginServer)/$(imageRepository):$(Build.BuildId)'
-  kubernetesServiceConnection: 'aks-k8s-connection'
-  aksNamespace: 'default'
-
 pool:
-  name: MyAzureVM-Pool  # ✅ Use your self-hosted agent
+  name: MyAzureVM-Pool  # Use your self-hosted agent pool
+
+variables:
+  jarName: 'spring-petclinic-3.4.0-SNAPSHOT.jar'  # Update if the jar name changes
+  sshServiceConnection: 'ssh-to-azurevm2'
+  remoteUser: 'azureuser'
+  remoteHost: '52.168.120.170'
+  remotePath: '/home/azureuser/app'
 
 stages:
   - stage: Build
-    displayName: 'Build Spring Boot App'
+    displayName: 'Build Spring Boot JAR'
     jobs:
-      - job: Build
+      - job: BuildAndPackage
         steps:
           - task: Maven@4
             inputs:
               mavenPomFile: 'pom.xml'
-              goals: 'clean package spring-boot:repackage'
+              goals: 'clean package'
               javaHomeOption: 'Path'
               jdkDirectory: 'C:\\Program Files\\Java\\jdk-17'
-            displayName: 'Maven Build'
-
-          - script: |
-              echo "✅ Checking for JAR file..."
-              dir "$(Build.SourcesDirectory)\\target"
-            displayName: 'Verify JAR Output'
+            displayName: 'Maven Clean Package'
 
           - task: PublishBuildArtifacts@1
             inputs:
-              PathtoPublish: '$(Build.SourcesDirectory)\\target'
-              ArtifactName: 'spring-petclinic-jar'
+              PathtoPublish: 'target'
+              ArtifactName: 'spring-petclinic'
               publishLocation: 'Container'
-            displayName: 'Publish JAR Artifact'
-
-  - stage: Dockerize
-    displayName: 'Docker Build and Push'
-    dependsOn: Build
-    jobs:
-      - job: DockerBuildPush
-        steps:
-          - script: |
-              echo "✅ Checking JAR exists before Docker build..."
-              dir "$(Build.SourcesDirectory)\\target"
-            displayName: 'Confirm JAR file exists'
-
-          - task: Docker@2
-            inputs:
-              containerRegistry: '$(dockerRegistryServiceConnection)'
-              repository: '$(imageRepository)'
-              command: 'buildAndPush'
-              Dockerfile: 'Dockerfile'
-              buildContext: '$(Build.SourcesDirectory)'
-              tags: '$(Build.BuildId)'
-            displayName: 'Docker Build and Push'
 
   - stage: Deploy
-    displayName: 'Deploy to AKS'
-    dependsOn: Dockerize
+    displayName: 'Deploy to Azure VM'
+    dependsOn: Build
     jobs:
-      - job: AKSDeploy
+      - job: DeployToVM
         steps:
-          - task: KubernetesManifest@1
-            inputs:
-              action: 'deploy'
-              kubernetesServiceConnection: '$(kubernetesServiceConnection)'
-              namespace: '$(aksNamespace)'
-              manifests: |
-                manifests/deployment.yaml
-                manifests/service.yaml
-              containers: |
-                $(dockerImageName)
-            displayName: 'Deploy to AKS'
+          - download: current
+            artifact: spring-petclinic
 
-  - stage: Verify
-    displayName: 'Expose and Verify'
-    dependsOn: Deploy
-    jobs:
-      - job: OutputURL
-        steps:
-          - script: |
-              echo "🌐 External IP:"
-              kubectl get svc spring-petclinic-service -n $(aksNamespace) -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
-            displayName: 'Print External IP'
+          - task: CopyFilesOverSSH@0
+            inputs:
+              sshEndpoint: '$(sshServiceConnection)'
+              sourceFolder: '$(Pipeline.Workspace)/spring-petclinic'
+              contents: '**/$(jarName)'
+              targetFolder: '$(remotePath)'
+            displayName: 'Copy JAR to VM'
+
+          - task: SSH@0
+            inputs:
+              sshEndpoint: '$(sshServiceConnection)'
+              runOptions: 'inline'
+              inline: |
+                echo "✅ Starting Spring Boot app..."
+                pkill -f "$(jarName)" || true
+                nohup java -jar $(remotePath)/$(jarName) > app.log 2>&1 &
+              displayName: 'Run Spring Boot App'
