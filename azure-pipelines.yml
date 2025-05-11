@@ -10,6 +10,9 @@ variables:
   dockerImageName: '$(acrLoginServer)/$(imageRepository):$(Build.BuildId)'
   kubernetesServiceConnection: 'aks-k8s-connection'
   aksNamespace: 'default'
+  sonar_token: $(sonar_token)  # Set in pipeline variables (secret)
+  sonarOrganization: 'shivakarthikreddyk'
+  sonarProjectKey: 'spring-petclinic'
 
 pool:
   name: MyAzureVM-Pool
@@ -21,21 +24,20 @@ stages:
       - job: Build
         displayName: 'Build with Maven & SonarCloud'
         steps:
-          - task: Maven@4
-            inputs:
-              mavenPomFile: 'pom.xml'
-              goals: 'clean package'
-              javaHomeOption: 'Path'
-              jdkDirectory: '/usr/lib/jvm/java-17-openjdk-amd64'
-            displayName: 'Maven Build'
+          - script: |
+              echo "Java Version:"
+              java -version
+              echo "Maven Version:"
+              mvn -version
+            displayName: 'Verify Java and Maven Versions'
 
           - script: |
-              mvn verify sonar:sonar \
-                -Dsonar.projectKey=spring-petclinic \
-                -Dsonar.organization=shivakarthikreddyk \
-                -Dsonar.host.url=https://sonarcloud.io \
-                -Dsonar.login=$(sonar_token)
-            displayName: 'Run SonarCloud Analysis'
+              mvn clean verify sonar:sonar \
+              -Dsonar.projectKey=$(sonarProjectKey) \
+              -Dsonar.organization=$(sonarOrganization) \
+              -Dsonar.host.url=https://sonarcloud.io \
+              -Dsonar.login=$(sonar_token)
+            displayName: 'Build & SonarCloud Analysis'
 
           - task: PublishBuildArtifacts@1
             inputs:
@@ -48,6 +50,7 @@ stages:
     dependsOn: Build
     jobs:
       - job: DockerBuildPush
+        displayName: 'Docker Build and Push to ACR'
         steps:
           - task: Docker@2
             inputs:
@@ -57,13 +60,13 @@ stages:
               Dockerfile: 'Dockerfile'
               buildContext: '$(Build.SourcesDirectory)'
               tags: '$(Build.BuildId)'
-            displayName: 'Docker Build and Push'
 
   - stage: Deploy
     displayName: 'Deploy to AKS'
     dependsOn: Dockerize
     jobs:
       - job: DeployAKS
+        displayName: 'Deploy App to AKS'
         steps:
           - task: KubernetesManifest@1
             inputs:
@@ -75,15 +78,15 @@ stages:
                 manifests/service.yaml
               containers: |
                 $(dockerImageName)
-            displayName: 'Deploy to AKS'
 
   - stage: Verify
     displayName: 'Expose & Verify App'
     dependsOn: Deploy
     jobs:
       - job: VerifyAccess
+        displayName: 'Verify External IP'
         steps:
           - script: |
-              echo "🌐 External IP:"
+              echo "🌐 LoadBalancer IP:"
               kubectl get svc spring-petclinic-service -n $(aksNamespace) -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
             displayName: 'Print LoadBalancer IP'
