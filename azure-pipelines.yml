@@ -10,8 +10,9 @@ variables:
   dockerImageName: '$(acrLoginServer)/$(imageRepository):$(Build.BuildId)'
   kubernetesServiceConnection: 'aks-k8s-connection'
   aksNamespace: 'default'
-  sonarOrganization: 'shivakarthikreddyk'
-  sonarProjectKey: 'spring-petclinic'
+  sshServiceConnection: 'frontend'
+  MAVEN_OPTS: '-Xmx512m'
+  JAVA_HOME: '/usr/lib/jvm/java-17-openjdk-amd64'
 
 pool:
   name: MyAzureVM-Pool
@@ -21,23 +22,32 @@ stages:
     displayName: 'Build Spring Boot App'
     jobs:
       - job: Build
-        displayName: 'Build with Maven & SonarCloud'
         steps:
-          - script: |
-              echo "Java Version:"
-              java -version
-              echo "Maven Version:"
-              mvn -version
-            displayName: 'Verify Java and Maven Versions'
+          - task: UseMavenVersion@0
+            inputs:
+              version: '3.8.8'
 
-          - script: |
-              export MAVEN_OPTS="--add-opens java.base/java.lang=ALL-UNNAMED"
-              mvn clean verify sonar:sonar \
-                -Dsonar.projectKey=$(sonarProjectKey) \
-                -Dsonar.organization=$(sonarOrganization) \
-                -Dsonar.host.url=https://sonarcloud.io \
-                -Dsonar.login=$(sonar_token)
-            displayName: 'Build & SonarCloud Analysis'
+          - task: Maven@4
+            inputs:
+              mavenPomFile: 'pom.xml'
+              goals: 'clean package'
+              javaHomeOption: 'Path'
+              jdkDirectory: '$(JAVA_HOME)'
+              options: '-DskipTests'
+            displayName: 'Maven Build (no tests)'
+
+          - task: Bash@3
+            inputs:
+              targetType: 'inline'
+              script: |
+                echo "🔍 Running SonarCloud Scan"
+                mvn verify sonar:sonar \
+                  -Dsonar.projectKey=spring-petclinic \
+                  -Dsonar.organization=shivakarthikreddyk \
+                  -Dsonar.host.url=https://sonarcloud.io \
+                  -Dsonar.login=$(sonar_token) \
+                  -Djava.opts="$(MAVEN_OPTS)"
+            displayName: 'Run SonarCloud Analysis'
 
           - task: PublishBuildArtifacts@1
             inputs:
@@ -50,7 +60,6 @@ stages:
     dependsOn: Build
     jobs:
       - job: DockerBuildPush
-        displayName: 'Docker Build and Push to ACR'
         steps:
           - task: Docker@2
             inputs:
@@ -60,13 +69,13 @@ stages:
               Dockerfile: 'Dockerfile'
               buildContext: '$(Build.SourcesDirectory)'
               tags: '$(Build.BuildId)'
+            displayName: 'Docker Build and Push'
 
   - stage: Deploy
     displayName: 'Deploy to AKS'
     dependsOn: Dockerize
     jobs:
       - job: DeployAKS
-        displayName: 'Deploy App to AKS'
         steps:
           - task: KubernetesManifest@1
             inputs:
@@ -78,15 +87,15 @@ stages:
                 manifests/service.yaml
               containers: |
                 $(dockerImageName)
+            displayName: 'Deploy to AKS'
 
   - stage: Verify
     displayName: 'Expose & Verify App'
     dependsOn: Deploy
     jobs:
       - job: VerifyAccess
-        displayName: 'Verify External IP'
         steps:
           - script: |
-              echo "🌐 LoadBalancer IP:"
+              echo "🌐 External IP:"
               kubectl get svc spring-petclinic-service -n $(aksNamespace) -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
             displayName: 'Print LoadBalancer IP'
