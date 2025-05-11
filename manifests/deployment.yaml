@@ -2,6 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: spring-petclinic-deployment
+  labels:
+    app: spring-petclinic
 spec:
   replicas: 1
   selector:
@@ -14,14 +16,16 @@ spec:
     spec:
       containers:
         - name: spring-petclinic
-          image: your-registry.com/spring-petclinic:latest  # Replace with your own registry or local Docker image
+          image: shivacr.azurecr.io/spring-petclinic:latest  # Will be overridden by pipeline
           ports:
             - containerPort: 8080
-      # Optional: Add if you are using self-hosted nodes and want to target specific ones
-      # nodeSelector:
-      #   kubernetes.io/hostname: your-node-name
-      # tolerations:
-      #   - key: "dedicated"
-      #     operator: "Equal"
-      #     value: "spring"
-      #     effect: "NoSchedule"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "1Gi"
+              cpu: "1"
+          env:
+            - name: JAVA_OPTS
+              value: "-Xms256m -Xmx512m"

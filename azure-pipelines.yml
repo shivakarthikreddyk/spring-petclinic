@@ -3,59 +3,97 @@ trigger:
     include:
       - main
 
-pool:
-  name: MyAzureVM-Pool  # Use your self-hosted agent pool
-
 variables:
-  jarName: 'spring-petclinic-3.4.0-SNAPSHOT.jar'  # Update if the jar name changes
-  sshServiceConnection: 'frontend'
-  remoteUser: 'azureuser'
-  remoteHost: '52.168.120.170'
-  remotePath: '/home/azureuser/app'
+  dockerRegistryServiceConnection: 'acr-docker-connection'  # ACR service connection name
+  acrLoginServer: 'shivacr.azurecr.io'                      # Your ACR login server
+  imageRepository: 'spring-petclinic'
+  dockerImageName: '$(acrLoginServer)/$(imageRepository):$(Build.BuildId)'
+  kubernetesServiceConnection: 'aks-k8s-connection'         # AKS service connection name
+  aksNamespace: 'default'
+  sshServiceConnection: 'frontend'                          # SSH to Azure VM for logging/debug
+
+pool:
+  name: MyAzureVM-Pool  # Self-hosted agent running on your Azure VM
 
 stages:
   - stage: Build
-    displayName: 'Build Spring Boot JAR'
+    displayName: 'Build Spring Boot App'
     jobs:
-      - job: BuildAndPackage
+      - job: Build
         steps:
           - task: Maven@4
             inputs:
               mavenPomFile: 'pom.xml'
-              goals: 'clean package'
+              goals: 'clean package spring-boot:repackage'
               javaHomeOption: 'Path'
               jdkDirectory: 'C:\\Program Files\\Java\\jdk-17'
-            displayName: 'Maven Clean Package'
+            displayName: 'Maven Build'
+
+          - task: SonarCloudPrepare@1
+            inputs:
+              SonarCloud: 'SonarCloud-ServiceConnection' # Update with your actual SonarCloud connection
+              organization: 'your-org'
+              scannerMode: 'CLI'
+              configMode: 'manual'
+              cliProjectKey: 'spring-petclinic'
+              cliProjectName: 'Spring PetClinic'
+            displayName: 'Prepare SonarCloud Analysis'
+
+          - script: |
+              mvn verify sonar:sonar \
+                -Dsonar.projectKey=spring-petclinic \
+                -Dsonar.organization=your-org \
+                -Dsonar.host.url=https://sonarcloud.io \
+                -Dsonar.login=$(SONAR_TOKEN)
+            displayName: 'Run SonarCloud Analysis'
 
           - task: PublishBuildArtifacts@1
             inputs:
-              PathtoPublish: 'target'
-              ArtifactName: 'spring-petclinic'
+              PathtoPublish: '$(Build.SourcesDirectory)/target'
+              ArtifactName: 'spring-petclinic-jar'
               publishLocation: 'Container'
 
-  - stage: Deploy
-    displayName: 'Deploy to Azure VM'
+  - stage: Dockerize
+    displayName: 'Docker Build and Push'
     dependsOn: Build
     jobs:
-      - job: DeployToVM
+      - job: DockerBuildPush
         steps:
-          - download: current
-            artifact: spring-petclinic
-
-          - task: CopyFilesOverSSH@0
+          - task: Docker@2
             inputs:
-              sshEndpoint: '$(sshServiceConnection)'
-              sourceFolder: '$(Pipeline.Workspace)/spring-petclinic'
-              contents: '**/$(jarName)'
-              targetFolder: '$(remotePath)'
-            displayName: 'Copy JAR to VM'
+              containerRegistry: '$(dockerRegistryServiceConnection)'
+              repository: '$(imageRepository)'
+              command: 'buildAndPush'
+              Dockerfile: 'Dockerfile'
+              buildContext: '$(Build.SourcesDirectory)'
+              tags: '$(Build.BuildId)'
+            displayName: 'Docker Build and Push'
 
-          - task: SSH@0
+  - stage: Deploy
+    displayName: 'Deploy to AKS'
+    dependsOn: Dockerize
+    jobs:
+      - job: DeployAKS
+        steps:
+          - task: KubernetesManifest@1
             inputs:
-              sshEndpoint: '$(sshServiceConnection)'
-              runOptions: 'inline'
-              inline: |
-                echo "✅ Starting Spring Boot app..."
-                pkill -f "$(jarName)" || true
-                nohup java -jar $(remotePath)/$(jarName) > app.log 2>&1 &
-              displayName: 'Run Spring Boot App'
+              action: 'deploy'
+              kubernetesServiceConnection: '$(kubernetesServiceConnection)'
+              namespace: '$(aksNamespace)'
+              manifests: |
+                manifests/deployment.yaml
+                manifests/service.yaml
+              containers: |
+                $(dockerImageName)
+            displayName: 'Deploy to AKS'
+
+  - stage: Verify
+    displayName: 'Expose & Verify App'
+    dependsOn: Deploy
+    jobs:
+      - job: VerifyAccess
+        steps:
+          - script: |
+              echo "🌐 External IP:"
+              kubectl get svc spring-petclinic-service -n $(aksNamespace) -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+            displayName: 'Print LoadBalancer IP'
