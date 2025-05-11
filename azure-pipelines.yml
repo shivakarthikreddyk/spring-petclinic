@@ -21,13 +21,6 @@ stages:
       - job: Build
         displayName: 'Build with Maven & SonarCloud'
         steps:
-          - task: JavaToolInstaller@0
-            inputs:
-              versionSpec: '17'
-              jdkArchitecture: 'x64'
-              jdkSourceOption: 'PreInstalled'
-            displayName: 'Ensure Java 17 Installed'
-
           - task: Maven@4
             inputs:
               mavenPomFile: 'pom.xml'
