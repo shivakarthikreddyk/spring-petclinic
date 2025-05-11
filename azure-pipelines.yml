@@ -4,17 +4,17 @@ trigger:
       - main
 
 variables:
-  dockerRegistryServiceConnection: 'acr-docker-connection'      # ACR service connection name
-  acrLoginServer: 'shivacr.azurecr.io'                          # ACR login server
+  dockerRegistryServiceConnection: 'acr-docker-connection'
+  acrLoginServer: 'shivacr.azurecr.io'
   imageRepository: 'spring-petclinic'
   dockerImageName: '$(acrLoginServer)/$(imageRepository):$(Build.BuildId)'
-  kubernetesServiceConnection: 'aks-k8s-connection'             # AKS service connection name
+  kubernetesServiceConnection: 'aks-k8s-connection'
   aksNamespace: 'default'
-  sshServiceConnection: 'frontend'                              # SSH for VM logging/debug
-  sonar_token: $(sonar_token)                                   # Pipeline variable (secret)
+  sshServiceConnection: 'frontend'
+  sonar_token: $(sonar_token)
 
 pool:
-  name: MyAzureVM-Pool  # Self-hosted agent running on your Azure VM
+  name: MyAzureVM-Pool
 
 stages:
   - stage: Build
@@ -27,15 +27,15 @@ stages:
               mavenPomFile: 'pom.xml'
               goals: 'clean package spring-boot:repackage'
               javaHomeOption: 'Path'
-              jdkDirectory: 'C:\\Program Files\\Java\\jdk-17'
+              jdkDirectory: '/usr/lib/jvm/java-17-openjdk-amd64'  # ✅ Linux path
             displayName: 'Maven Build'
 
           - script: |
               mvn verify sonar:sonar \
-                -Dsonar.projectKey=spring-petclinic \
-                -Dsonar.organization=shivakarthikreddyk \
-                -Dsonar.host.url=https://sonarcloud.io \
-                -Dsonar.login=$(sonar_token)
+              -Dsonar.projectKey=spring-petclinic \
+              -Dsonar.organization=shivakarthikreddyk \
+              -Dsonar.host.url=https://sonarcloud.io \
+              -Dsonar.login=$(sonar_token)
             displayName: 'Run SonarCloud Analysis'
 
           - task: PublishBuildArtifacts@1
