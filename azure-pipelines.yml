@@ -10,7 +10,6 @@ variables:
   dockerImageName: '$(acrLoginServer)/$(imageRepository):$(Build.BuildId)'
   kubernetesServiceConnection: 'aks-k8s-connection'
   aksNamespace: 'default'
-  sonar_token: $(sonar_token)  # Set in pipeline variables (secret)
   sonarOrganization: 'shivakarthikreddyk'
   sonarProjectKey: 'spring-petclinic'
 
@@ -32,11 +31,12 @@ stages:
             displayName: 'Verify Java and Maven Versions'
 
           - script: |
+              export MAVEN_OPTS="--add-opens java.base/java.lang=ALL-UNNAMED"
               mvn clean verify sonar:sonar \
-              -Dsonar.projectKey=$(sonarProjectKey) \
-              -Dsonar.organization=$(sonarOrganization) \
-              -Dsonar.host.url=https://sonarcloud.io \
-              -Dsonar.login=$(sonar_token)
+                -Dsonar.projectKey=$(sonarProjectKey) \
+                -Dsonar.organization=$(sonarOrganization) \
+                -Dsonar.host.url=https://sonarcloud.io \
+                -Dsonar.login=$(sonar_token)
             displayName: 'Build & SonarCloud Analysis'
 
           - task: PublishBuildArtifacts@1
