@@ -4,13 +4,14 @@ trigger:
       - main
 
 variables:
-  dockerRegistryServiceConnection: 'acr-docker-connection'  # ACR service connection name
-  acrLoginServer: 'shivacr.azurecr.io'                      # Your ACR login server
+  dockerRegistryServiceConnection: 'acr-docker-connection'      # ACR service connection name
+  acrLoginServer: 'shivacr.azurecr.io'                          # ACR login server
   imageRepository: 'spring-petclinic'
   dockerImageName: '$(acrLoginServer)/$(imageRepository):$(Build.BuildId)'
-  kubernetesServiceConnection: 'aks-k8s-connection'         # AKS service connection name
+  kubernetesServiceConnection: 'aks-k8s-connection'             # AKS service connection name
   aksNamespace: 'default'
-  sshServiceConnection: 'frontend'                          # SSH to Azure VM for logging/debug
+  sshServiceConnection: 'frontend'                              # SSH for VM logging/debug
+  sonar_token: $(sonar_token)                                   # Pipeline variable (secret)
 
 pool:
   name: MyAzureVM-Pool  # Self-hosted agent running on your Azure VM
@@ -29,22 +30,12 @@ stages:
               jdkDirectory: 'C:\\Program Files\\Java\\jdk-17'
             displayName: 'Maven Build'
 
-          - task: SonarCloudPrepare@1
-            inputs:
-              SonarCloud: 'SonarCloud-ServiceConnection' # Update with your actual SonarCloud connection
-              organization: 'your-org'
-              scannerMode: 'CLI'
-              configMode: 'manual'
-              cliProjectKey: 'spring-petclinic'
-              cliProjectName: 'Spring PetClinic'
-            displayName: 'Prepare SonarCloud Analysis'
-
           - script: |
               mvn verify sonar:sonar \
                 -Dsonar.projectKey=spring-petclinic \
-                -Dsonar.organization=your-org \
+                -Dsonar.organization=shivakarthikreddyk \
                 -Dsonar.host.url=https://sonarcloud.io \
-                -Dsonar.login=$(SONAR_TOKEN)
+                -Dsonar.login=$(sonar_token)
             displayName: 'Run SonarCloud Analysis'
 
           - task: PublishBuildArtifacts@1
