@@ -8,7 +8,7 @@ pool:
 
 variables:
   jarName: 'spring-petclinic-3.4.0-SNAPSHOT.jar'  # Update if the jar name changes
-  sshServiceConnection: 'ssh-to-azurevm2'
+  sshServiceConnection: 'frontend'
   remoteUser: 'azureuser'
   remoteHost: '52.168.120.170'
   remotePath: '/home/azureuser/app'
