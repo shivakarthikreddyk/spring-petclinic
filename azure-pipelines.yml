@@ -10,8 +10,6 @@ variables:
   dockerImageName: '$(acrLoginServer)/$(imageRepository):$(Build.BuildId)'
   kubernetesServiceConnection: 'aks-k8s-connection'
   aksNamespace: 'default'
-  sshServiceConnection: 'frontend'
-  sonar_token: $(sonar_token)
 
 pool:
   name: MyAzureVM-Pool
@@ -21,21 +19,29 @@ stages:
     displayName: 'Build Spring Boot App'
     jobs:
       - job: Build
+        displayName: 'Build with Maven & SonarCloud'
         steps:
+          - task: JavaToolInstaller@0
+            inputs:
+              versionSpec: '17'
+              jdkArchitecture: 'x64'
+              jdkSourceOption: 'PreInstalled'
+            displayName: 'Ensure Java 17 Installed'
+
           - task: Maven@4
             inputs:
               mavenPomFile: 'pom.xml'
-              goals: 'clean package spring-boot:repackage'
+              goals: 'clean package'
               javaHomeOption: 'Path'
-              jdkDirectory: '/usr/lib/jvm/java-17-openjdk-amd64'  # ✅ Linux path
+              jdkDirectory: '/usr/lib/jvm/java-17-openjdk-amd64'
             displayName: 'Maven Build'
 
           - script: |
               mvn verify sonar:sonar \
-              -Dsonar.projectKey=spring-petclinic \
-              -Dsonar.organization=shivakarthikreddyk \
-              -Dsonar.host.url=https://sonarcloud.io \
-              -Dsonar.login=$(sonar_token)
+                -Dsonar.projectKey=spring-petclinic \
+                -Dsonar.organization=shivakarthikreddyk \
+                -Dsonar.host.url=https://sonarcloud.io \
+                -Dsonar.login=$(sonar_token)
             displayName: 'Run SonarCloud Analysis'
 
           - task: PublishBuildArtifacts@1
